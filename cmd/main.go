@@ -18,8 +18,8 @@ var (
 	fileInfo os.FileInfo
 	fileSize int64
 	err      error
-
-	word []byte
+	numLines int
+	word     []byte
 )
 
 type coloredChar struct {
@@ -44,36 +44,47 @@ func main() {
 
 	fileSize = fileInfo.Size()
 	fmt.Printf("File size: %d", fileSize)
-	word = getWord()
-	fmt.Printf("Word length: %d\n", len(word))
-	fmt.Printf("word: %s\n", word)
-
+	numLines, _ = lineCounter(wordFile)
 	for {
+		word = getWord()
+		fmt.Printf("Word length: %d\n", len(word))
+		fmt.Printf("word: %s\n", word)
 		attempts := 0
 		//guessWord := []byte("adieu")
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Guess: ")
-		text, _ := reader.ReadBytes('\n')
+		for {
+			reader := bufio.NewReader(os.Stdin)
+			fmt.Print("Guess: ")
+			text, _ := reader.ReadBytes('\n')
 
-		response, correct := guess(text)
+			response, correct := guess(text[:len(text)-1])
 
-		if response != nil {
-			for _, c := range response {
-				c.color.Printf("%s", string(c.char))
+			if correct {
+				fmt.Println(color.New(color.FgMagenta).Println("Correct!"))
+				break
 			}
-			//log.Println()
-			fmt.Println()
-		} else {
-			log.Printf("response null")
+			attempts++
+			if response != nil {
+				for _, c := range response {
+					c.color.Printf("%s", string(c.char))
+				}
+				//log.Println()
+				fmt.Println()
+			} else {
+				log.Printf("response null")
+			}
+			if attempts == 5 {
+				fmt.Println("Fail!!")
+				break
+			}
 		}
+
 	}
 
 }
 
 func getWord() []byte {
 	rand.Seed(time.Now().UnixNano())
-	numLines, err := lineCounter(wordFile)
-	fmt.Printf("num lines: %d\n", numLines)
+
 	var lineSize int64 = fileSize / int64(numLines)
 	if err != nil {
 		log.Fatal("panic")
@@ -99,18 +110,20 @@ func getWord() []byte {
 }
 
 func guess(guess []byte) ([]*coloredChar, bool) {
-	response := make([]*coloredChar, 5)
+	fmt.Printf("guess: %s\n", guess)
+	fmt.Printf("guess length: %d\n", len(guess))
+	response := make([]*coloredChar, len(guess))
 
 	var correct int = 0
 
-	for i, char := range guess {
-		if char == word[i] {
+	for i := 0; i < len(guess)-1; i++ {
+		if guess[i] == word[i] {
 			correct++
-			response[i] = &coloredChar{char, color.New(color.FgHiGreen)}
-		} else if bytes.Contains(word, []byte{char}) {
-			response[i] = &coloredChar{char, color.New(color.FgHiYellow)}
+			response[i] = &coloredChar{guess[i], color.New(color.FgHiGreen)}
+		} else if bytes.Contains(word, []byte{guess[i]}) {
+			response[i] = &coloredChar{guess[i], color.New(color.FgHiYellow)}
 		} else {
-			response[i] = &coloredChar{char, color.New(color.FgWhite)}
+			response[i] = &coloredChar{guess[i], color.New(color.FgWhite)}
 		}
 	}
 	if correct == 5 {
