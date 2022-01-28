@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"os"
@@ -41,33 +43,45 @@ func main() {
 	}
 
 	fileSize = fileInfo.Size()
-
+	fmt.Printf("File size: %d", fileSize)
 	word = getWord()
-
+	fmt.Printf("Word length: %d\n", len(word))
 	fmt.Printf("word: %s\n", word)
 
-	guessWord := []byte("adieu")
+	for {
+		attempts := 0
+		//guessWord := []byte("adieu")
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("Guess: ")
+		text, _ := reader.ReadBytes('\n')
 
-	response := guess(guessWord)
+		response, correct := guess(text)
 
-	if response != nil {
-		for _, c := range response {
-			c.color.Printf("%s", string(c.char))
+		if response != nil {
+			for _, c := range response {
+				c.color.Printf("%s", string(c.char))
+			}
+			//log.Println()
+			fmt.Println()
+		} else {
+			log.Printf("response null")
 		}
-		//log.Println()
-		fmt.Println()
-	} else {
-		log.Printf("response null")
 	}
+
 }
 
 func getWord() []byte {
-	var numLines int = int(fileSize / 6)
-
 	rand.Seed(time.Now().UnixNano())
+	numLines, err := lineCounter(wordFile)
+	fmt.Printf("num lines: %d\n", numLines)
+	var lineSize int64 = fileSize / int64(numLines)
+	if err != nil {
+		log.Fatal("panic")
+	}
 
-	var randLine int = rand.Intn(numLines + 1)
-	var offset int64 = int64(randLine * 6)
+	var randLine int64 = int64(rand.Intn(int(numLines) + 1))
+	fmt.Printf("rand line: %d\n", randLine)
+	var offset int64 = int64(randLine * lineSize)
 
 	_, err = wordFile.Seek(offset, 0)
 	if err != nil {
@@ -84,10 +98,14 @@ func getWord() []byte {
 	return word
 }
 
-func guess(guess []byte) []*coloredChar {
+func guess(guess []byte) ([]*coloredChar, bool) {
 	response := make([]*coloredChar, 5)
+
+	var correct int = 0
+
 	for i, char := range guess {
 		if char == word[i] {
+			correct++
 			response[i] = &coloredChar{char, color.New(color.FgHiGreen)}
 		} else if bytes.Contains(word, []byte{char}) {
 			response[i] = &coloredChar{char, color.New(color.FgHiYellow)}
@@ -95,6 +113,28 @@ func guess(guess []byte) []*coloredChar {
 			response[i] = &coloredChar{char, color.New(color.FgWhite)}
 		}
 	}
+	if correct == 5 {
+		return response, true
+	}
 
-	return response
+	return response, false
+}
+
+func lineCounter(r io.Reader) (int, error) {
+	buf := make([]byte, 32*1024)
+	count := 0
+	lineSep := []byte{'\n'}
+
+	for {
+		c, err := r.Read(buf)
+		count += bytes.Count(buf[:c], lineSep)
+
+		switch {
+		case err == io.EOF:
+			return count, nil
+
+		case err != nil:
+			return count, err
+		}
+	}
 }
