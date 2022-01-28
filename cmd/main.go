@@ -19,6 +19,7 @@ var (
 	fileSize int64
 	err      error
 	numLines int
+	lineSize int64
 	word     []byte
 )
 
@@ -28,7 +29,7 @@ type coloredChar struct {
 }
 
 func main() {
-	wordFile, err = os.Open("assets/words.txt")
+	wordFile, err = os.Open("words.txt")
 
 	if err != nil {
 		log.Fatal(err)
@@ -36,19 +37,20 @@ func main() {
 
 	defer wordFile.Close()
 
-	fileInfo, err = os.Stat("assets/words.txt")
+	fileInfo, err = os.Stat("words.txt")
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fileSize = fileInfo.Size()
-	fmt.Printf("File size: %d", fileSize)
+	//fmt.Printf("File size: %d", fileSize)
 	numLines, _ = lineCounter(wordFile)
+	lineSize = fileSize / int64(numLines)
 	for {
 		word = getWord()
-		fmt.Printf("Word length: %d\n", len(word))
-		fmt.Printf("word: %s\n", word)
+		//fmt.Printf("Word length: %d\n", len(word))
+		//fmt.Printf("word: %s\n", word)
 		attempts := 0
 		//guessWord := []byte("adieu")
 		for {
@@ -59,13 +61,14 @@ func main() {
 			response, correct := guess(text[:len(text)-1])
 
 			if correct {
-				fmt.Println(color.New(color.FgMagenta).Println("Correct!"))
+				color.New(color.FgMagenta).Println("Correct!")
 				break
 			}
 			attempts++
 			if response != nil {
+				fmt.Println("response length: ", len(response))
 				for _, c := range response {
-					c.color.Printf("%s", string(c.char))
+					c.color.Printf("%s ", string(c.char))
 				}
 				//log.Println()
 				fmt.Println()
@@ -73,7 +76,9 @@ func main() {
 				log.Printf("response null")
 			}
 			if attempts == 5 {
-				fmt.Println("Fail!!")
+				color.New(color.FgHiRed).Print("Wrong! ")
+				fmt.Printf("Correct word was: %s", word)
+				fmt.Println()
 				break
 			}
 		}
@@ -85,13 +90,12 @@ func main() {
 func getWord() []byte {
 	rand.Seed(time.Now().UnixNano())
 
-	var lineSize int64 = fileSize / int64(numLines)
 	if err != nil {
 		log.Fatal("panic")
 	}
 
 	var randLine int64 = int64(rand.Intn(int(numLines) + 1))
-	fmt.Printf("rand line: %d\n", randLine)
+	//fmt.Printf("rand line: %d\n", randLine)
 	var offset int64 = int64(randLine * lineSize)
 
 	_, err = wordFile.Seek(offset, 0)
@@ -110,13 +114,13 @@ func getWord() []byte {
 }
 
 func guess(guess []byte) ([]*coloredChar, bool) {
-	fmt.Printf("guess: %s\n", guess)
-	fmt.Printf("guess length: %d\n", len(guess))
+	//fmt.Printf("guess: %s\n", guess)
+	//fmt.Printf("guess length: %d\n", len(guess))
 	response := make([]*coloredChar, len(guess))
 
 	var correct int = 0
 
-	for i := 0; i < len(guess)-1; i++ {
+	for i := 0; i < len(guess); i++ {
 		if guess[i] == word[i] {
 			correct++
 			response[i] = &coloredChar{guess[i], color.New(color.FgHiGreen)}
